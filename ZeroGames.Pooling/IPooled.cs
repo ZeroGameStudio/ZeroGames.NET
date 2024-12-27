@@ -4,8 +4,8 @@ namespace ZeroGames.Pooling;
 
 public interface IPooled
 {
-	void GetFromPool();
-	void ReturnToPool();
+	void PreGetFromPool();
+	void PreReturnToPool();
 }
 
 

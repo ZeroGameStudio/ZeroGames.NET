@@ -10,19 +10,16 @@ public sealed class ObjectPool<T> where T : class, new()
 	public ObjectPool(IConfigProvider<T> configProvider)
 	{
 		configProvider.GetConfig(out _config);
+		_storage = new(Math.Min(_config.MaxAliveCount, MAX_DEFAULT_CAPACITY));
 		for (int32 i = 0; i < _config.PrecacheCount; ++i)
 		{
-			_link.AddLast(new T());
+			_storage.Enqueue(new T());
 		}
 	}
 
 	public T Get()
 	{
-		T instance = _link.First?.Value ?? new();
-		if (_link.Count > 0)
-		{
-			_link.RemoveFirst();
-		}
+		T instance = _storage.TryDequeue(out var existing) ? existing : new();
 
 		// If client GetFromPool() throws then we throw.
 		GetFromPool(instance);
@@ -31,21 +28,21 @@ public sealed class ObjectPool<T> where T : class, new()
 
 	public void Return(T instance)
 	{
-		if (_config.MaxAliveCount > 0 && _link.Count >= _config.MaxAliveCount)
+		if (_config.MaxAliveCount > 0 && _storage.Count >= _config.MaxAliveCount)
 		{
 			return;
 		}
 
 		// If client ReturnToPool() throws then we throw at this point and won't add to link.
 		ReturnToPool(instance);
-		_link.AddLast(instance);
+		_storage.Enqueue(instance);
 	}
 	
 	private void GetFromPool(T instance)
 	{
 		if (_intrusive)
 		{
-			((IPooled)instance).GetFromPool();
+			((IPooled)instance).PreGetFromPool();
 		}
 		else
 		{
@@ -57,7 +54,7 @@ public sealed class ObjectPool<T> where T : class, new()
 	{
 		if (_intrusive)
 		{
-			((IPooled)instance).ReturnToPool();
+			((IPooled)instance).PreReturnToPool();
 		}
 		else
 		{
@@ -75,11 +72,11 @@ public sealed class ObjectPool<T> where T : class, new()
 			{
 				foreach (var attribute in method.GetCustomAttributes())
 				{
-					if (attribute is GetFromPoolAttribute)
+					if (attribute is PreGetFromPoolAttribute)
 					{
 						_getFromPoolMethod = method;
 					}
-					if (attribute is ReturnToPoolAttribute)
+					if (attribute is PreReturnToPoolAttribute)
 					{
 						_returnToPoolMethod = method;
 					}
@@ -88,12 +85,14 @@ public sealed class ObjectPool<T> where T : class, new()
 		}
 	}
 
+	private const int32 MAX_DEFAULT_CAPACITY = 1 << 10;
+
 	private static readonly bool _intrusive;
 	private static readonly MethodInfo? _getFromPoolMethod;
 	private static readonly MethodInfo? _returnToPoolMethod;
 
 	private readonly ObjectPoolConfig _config;
-	private readonly LinkedList<T> _link = new();
+	private readonly Queue<T> _storage;
 
 }
 

@@ -3,6 +3,6 @@
 namespace ZeroGames.Pooling;
 
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class GetFromPoolAttribute : Attribute;
+public sealed class PreGetFromPoolAttribute : Attribute;
 
 
