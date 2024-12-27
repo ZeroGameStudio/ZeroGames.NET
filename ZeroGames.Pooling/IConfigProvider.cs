@@ -2,7 +2,7 @@
 
 namespace ZeroGames.Pooling;
 
-public interface IConfigProvider<T> where T : class
+public interface IConfigProvider<T> where T : class, new()
 {
 	void GetConfig(out ObjectPoolConfig config);
 }
